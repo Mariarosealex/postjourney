@@ -64,4 +64,33 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Admin Login
+router.post('/admin/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Find user with userType 'admin'
+    const admin = await User.findOne({ email, userType: "admin" });
+    if (!admin) {
+      return res.status(400).json({ success: false, message: "Not an admin account" });
+    }
+
+    // Compare password (bcrypt)
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Incorrect password" });
+    }
+
+    // Successful login
+    return res.status(200).json({
+      success: true,
+      message: "Admin login successful",
+      admin: { id: admin._id, email: admin.email, name: admin.name }
+    });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 export default router;

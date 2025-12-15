@@ -4,8 +4,13 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:8081",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type"],
+  })
+);app.use(express.json());
 
 // Connect to MongoDB
 mongoose.connect('mongodb://127.0.0.1:27017/postJourneyDB', {
@@ -14,12 +19,19 @@ mongoose.connect('mongodb://127.0.0.1:27017/postJourneyDB', {
 });
 
 // User Schema
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
-  userType: String,
-});
+const userSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: String,
+    password: String,
+    userType: String,
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true } // 👈 this adds createdAt & updatedAt
+);
 
 const User = mongoose.model('User', userSchema);
 
@@ -40,36 +52,30 @@ app.post('/register', async (req, res) => {
       return res.json({ success: false, message: 'All fields are required.' });
     }
 
-    // Name validation
     if (!nameRegex.test(name)) {
       return res.json({ success: false, message: 'Name should contain only letters.' });
     }
 
-    // Email format validation
     if (!emailRegex.test(email)) {
       return res.json({ success: false, message: 'Invalid email format.' });
     }
 
-    // Email domain validation
     const domain = email.split('@')[1];
     if (!allowedDomains.includes(domain)) {
       return res.json({ success: false, message: 'Email domain not allowed.' });
     }
 
-    // Password validation
     if (!passwordRegex.test(password)) {
-      return res.json({ 
-        success: false, 
-        message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.' 
+      return res.json({
+        success: false,
+        message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
       });
     }
 
-    // User type validation
     if (!['patient', 'service provider'].includes(userType)) {
       return res.json({ success: false, message: 'User type must be either patient or service provider.' });
     }
 
-    // Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.json({ success: false, message: 'Email already registered.' });
@@ -107,10 +113,13 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Import Video Routes
 import videoRoutes from "./routes/videoRoutes.js";
-app.use("/videos", videoRoutes);
 
+// Mount them here
+app.use("/api", videoRoutes);
 
+// Admin Login
 // Admin Login
 app.post("/admin/login", async (req, res) => {
   const { secretKey, email, password } = req.body;
@@ -151,10 +160,50 @@ app.post("/admin/login", async (req, res) => {
 app.get("/admin/test", (req, res) => {
   res.send("Admin route OK");
 });
-
-
-
-app.listen(5000, () => {
-  console.log('Server running on port 5000');
+ 
+app.get("/admin/users", async (req, res) => {
+  try {
+    const users = await User.find({}, { password: 0 }).sort({
+      createdAt: -1,
+    });
+    res.json({ success: true, users });
+  } catch (err) {
+    res.json({ success: false, message: "Failed to fetch users" });
+  }
 });
 
+// Block / Unblock user
+app.put("/admin/block/:id", async (req, res) => {
+  console.log("BLOCK API HIT:", req.params.id);
+
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.json({ success: false, message: "User not found" });
+
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+
+    res.json({ success: true, isBlocked: user.isBlocked });
+  } catch {
+    res.json({ success: false, message: "Failed to update user" });
+  }
+});
+
+// Delete user
+app.delete("/admin/delete/:id", async (req, res) => {
+  console.log("DELETE API HIT:", req.params.id);
+
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch {
+    res.json({ success: false, message: "Failed to delete user" });
+  }
+});
+
+
+
+
+app.listen(5000, "0.0.0.0", () => {
+  console.log("Server running on port 5000 (LAN enabled)");
+});

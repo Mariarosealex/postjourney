@@ -7,21 +7,47 @@ import {
   StyleSheet,
   ScrollView,
   ImageBackground,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import axios from "axios";
 
 export default function VideoList({ route, navigation }) {
   const { category } = route.params;
   const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const API_BASE = "http://192.168.112.170:5000"; // ← CHANGE IP HERE
+  // === IMPORTANT: replace this with your machine's local IP visible to the phone ===
+  // e.g. "http://172.16.237.198:5000" or whatever `ipconfig` showed as your IPv4.
+  const API_BASE = "http://192.168.112.170:5000";
 
   useEffect(() => {
-    axios
-      .get(`${API_BASE}/api/videos/category/${category}`)
-      .then((res) => setVideos(res.data))
-      .catch(() => alert("Failed to load videos"));
-  }, []);
+    let isMounted = true;
+    const fetchVideos = async () => {
+      try {
+        setLoading(true);
+        // encode category so spaces or special chars won't break URL
+        const encoded = encodeURIComponent(category);
+        const url = `${API_BASE}/api/videos/category/${encoded}`;
+        const res = await axios.get(url, { timeout: 8000 });
+        if (!isMounted) return;
+        setVideos(res.data || []);
+      } catch (err) {
+        console.error("VideoList fetch error:", err?.message || err);
+        Alert.alert(
+          "Failed to load videos",
+          err?.response?.data?.message || err?.message || "Network or server error"
+        );
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchVideos();
+    return () => {
+      isMounted = false;
+    };
+  }, [category]);
 
   return (
     <ImageBackground
@@ -32,17 +58,38 @@ export default function VideoList({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>{category.replace("-", " ")} Videos</Text>
 
+        {loading && (
+          <View style={{ marginTop: 40 }}>
+            <ActivityIndicator size="large" />
+          </View>
+        )}
+
+        {!loading && videos.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              No videos found for this category.
+            </Text>
+          </View>
+        )}
+
         {videos.map((video) => (
           <TouchableOpacity
             key={video._id}
             style={styles.card}
-            onPress={() =>
-              navigation.navigate("VideoPlayer", { url: video.url })
-            }
+            onPress={() => navigation.navigate("VideoPlayer", { url: video.url })}
           >
-            <Image source={{ uri: video.thumbnail }} style={styles.thumbnail} />
+            <Image
+              source={
+                video.thumbnail
+                  ? { uri: video.thumbnail }
+                  : require("../assets/postjourney_logo.png")
+              }
+              style={styles.thumbnail}
+            />
             <Text style={styles.cardTitle}>{video.title}</Text>
-            <Text style={styles.cardDesc}>{video.description}</Text>
+            <Text style={styles.cardDesc} numberOfLines={3}>
+              {video.description}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -60,6 +107,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 100,
+    alignItems: "center",
   },
   title: {
     fontSize: 26,
@@ -69,7 +117,8 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   card: {
-    backgroundColor: "rgba(255,255,255,0.9)",
+    width: "100%",
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
@@ -80,6 +129,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     marginBottom: 12,
+    backgroundColor: "#eee",
   },
   cardTitle: {
     fontSize: 18,
@@ -89,5 +139,14 @@ const styles = StyleSheet.create({
   cardDesc: {
     fontSize: 14,
     color: "#444",
+  },
+  empty: {
+    marginTop: 30,
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#333",
+    fontSize: 16,
   },
 });

@@ -8,7 +8,17 @@ import {
   ScrollView,
 } from "react-native";
 
-export default function PatientDashboard({ navigation }) {
+export default function ExercisesDashboard({ navigation }) {
+  const exercises = [
+    { label: "Walking Exercise", value: "walking" },
+    { label: "Breathing Exercise", value: "breathing" },
+    { label: "Arm Mobility Exercise", value: "arm-mobility" },
+    { label: "Leg Strengthening Exercise", value: "leg-strength" },
+    { label: "Neck & Shoulder Rotation", value: "neck-rotation" },
+    { label: "Bed Mobility Exercise", value: "bed-mobility" },
+    { label: "Posture Correction Exercise", value: "posture" },
+  ];
+
   return (
     <ImageBackground
       source={require("../assets/pjlogo_bg.png")}
@@ -16,23 +26,19 @@ export default function PatientDashboard({ navigation }) {
       resizeMode="cover"
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Patient Dashboard</Text>
+        <Text style={styles.title}>Exercise Monitoring</Text>
 
-        {/* Medical Demonstrations */}
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("VideoCategories")}
-        >
-          <Text style={styles.buttonText}>Medical Demonstrations</Text>
-        </TouchableOpacity>
-
-        {/* NEW: Exercise Monitoring */}
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("ExercisesDashboard")}
-        >
-          <Text style={styles.buttonText}>Exercise Monitoring</Text>
-        </TouchableOpacity>
+        {exercises.map((ex, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.button}
+            onPress={() =>
+              navigation.navigate("ExerciseMonitor", { exercise: ex.value })
+            }
+          >
+            <Text style={styles.buttonText}>{ex.label}</Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
     </ImageBackground>
   );

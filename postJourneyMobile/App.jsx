@@ -10,6 +10,7 @@ import AdminLoginScreen from "./screens/AdminLoginScreen";
 import AdminUsersScreen from "./screens/AdminUsersScreen";
 import PatientDashboard from "./screens/PatientDashboard";
 import ServiceProviderDashboard from "./screens/ServiceProviderDashboard";
+import ExercisesDashboard from './screens/ExercisesDashboard';
 import VideoCategories from "./screens/VideoCategories";
 import VideoList from "./screens/VideoList";
 import VideoPlayer from "./screens/VideoPlayer";
@@ -35,6 +36,7 @@ export default function App() {
         <Stack.Screen name="VideoCategories" component={VideoCategories} />
         <Stack.Screen name="VideoList" component={VideoList} />
         <Stack.Screen name="VideoPlayer" component={VideoPlayer} />
+        <Stack.Screen name='ExercisesDashboard' component={ExercisesDashboard} />
       </Stack.Navigator>
     </NavigationContainer>
   );
