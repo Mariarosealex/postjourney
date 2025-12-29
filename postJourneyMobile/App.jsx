@@ -13,6 +13,8 @@ import ServiceProviderDashboard from "./screens/ServiceProviderDashboard";
 import ExercisesDashboard from './screens/ExercisesDashboard';
 import VideoPlayer from "./screens/VideoPlayer";
 import MedicalVideos from "./screens/MedicalVideos";
+import OtpVerifyScreen from "./screens/OtpVerifyScreen";
+import ServiceProviderProfileScreen from "./screens/ServiceProviderProfileScreen";
 import BedMobilityDemo from "./screens/exerciseMonitoring/BedMobilityDemo";
 import BedMobilityMonitor from "./screens/exerciseMonitoring/BedMobilityMonitor";
 import LegRaiseDemo from './screens/exerciseMonitoring/LegRaiseDemo';
@@ -41,6 +43,8 @@ export default function App() {
         <Stack.Screen name="VideoPlayer" component={VideoPlayer} />
         <Stack.Screen name='ExercisesDashboard' component={ExercisesDashboard} />
         <Stack.Screen name="MedicalVideos" component={MedicalVideos} />
+        <Stack.Screen name="OtpVerifyScreen" component={OtpVerifyScreen}/>
+        <Stack.Screen name="ServiceProviderProfileScreen" component={ServiceProviderProfileScreen} />
         <Stack.Screen name="BedMobilityDemo" component={BedMobilityDemo}/>
         <Stack.Screen name="BedMobilityMonitor" component={BedMobilityMonitor}/>
         <Stack.Screen name="LegRaiseDemo" component={LegRaiseDemo}/>

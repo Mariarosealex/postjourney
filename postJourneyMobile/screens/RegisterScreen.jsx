@@ -32,7 +32,7 @@ export default function RegisterScreen({ navigation }) {
 
       if (response.data.success) {
         Alert.alert("Success", response.data.message);
-        navigation.navigate("LoginScreen");
+navigation.navigate("OtpVerifyScreen", { email });
       } else {
         Alert.alert("Error", response.data.message);
       }

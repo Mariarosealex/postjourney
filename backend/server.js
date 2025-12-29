@@ -3,8 +3,12 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import cors from "cors";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import { sendOtpMail } from "./utils/sendOtpMail.js";
+import User from "./models/User.js";
 
-// ✅ LOAD ENV FIRST — THIS IS THE FIX
+// ✅ LOAD ENV F
+// IRST — THIS IS THE FIX
 dotenv.config();
 console.log("ENV FILE CHECK");
 console.log("YouTube API Key:", process.env.YOUTUBE_API_KEY);
@@ -18,7 +22,7 @@ app.use(
     origin: [
       "http://localhost:5173",  // Web app (Vite)
       "http://localhost:8081",  // Expo web
-      "http://192.168.112.170:5000", // Backend (self-reference)
+      "http://192.168.8.135:5000", // Backend (self-reference)
       "http://192.168.112.170",  // Mobile app device
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -35,21 +39,7 @@ mongoose.connect("mongodb://127.0.0.1:27017/postJourneyDB", {
 });
 
 // User Schema
-const userSchema = new mongoose.Schema(
-  {
-    name: String,
-    email: String,
-    password: String,
-    userType: String,
-    isBlocked: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { timestamps: true }
-);
 
-const User = mongoose.model("User", userSchema);
 
 // Validation regex
 const nameRegex = /^[A-Za-z\s]+$/;
@@ -107,46 +97,265 @@ app.post("/register", async (req, res) => {
       });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await new User({
+
+    // 🔢 Generate OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    // ⏳ OTP expiry (10 minutes)
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 10);
+
+    const user = new User({
       name,
       email,
       password: hashedPassword,
       userType,
-    }).save();
+      isVerified: false,
+      otp,
+      otpExpiry,
+    });
 
-    res.json({ success: true, message: "User registered successfully." });
-  } catch (err) {
-    console.error(err);
-    res.json({ success: false, message: "Server error occurred." });
-  }
-});
+    await user.save();
 
-// Login
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+    // 📧 Send OTP
+    await sendOtpMail(email, otp);
 
-    if (!email || !password)
-      return res.json({ success: false, message: "All fields are required." });
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.json({ success: false, message: "Invalid credentials." });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.json({ success: false, message: "Invalid credentials." });
-
-    res.json({
+    return res.json({
       success: true,
-      message: "Login successful.",
-      userType: user.userType,
+      message: "OTP sent to your email. Please verify.",
     });
   } catch (err) {
     console.error(err);
     res.json({ success: false, message: "Server error occurred." });
   }
 });
+
+
+
+app.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const user = await User.findOne({ email });
+    console.log("OTP Entered:", otp);
+console.log("OTP Stored:", user.otp);
+console.log("OTP Expiry in DB:", user.otpExpiry);
+console.log("Current Server Time:", new Date());
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.json({
+        success: true,
+        message: "Email already verified",
+      });
+    }
+
+    // ⏳ OTP expiry check (10 minutes)
+    if (!user.otpExpiry || user.otpExpiry < new Date()) {
+      return res.json({
+        success: false,
+        message: "OTP expired. Please resend OTP",
+      });
+    }
+
+    // 🔢 OTP match check
+    if (user.otp !== otp) {
+      return res.json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    // ✅ SUCCESS
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiry = null;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Email verified successfully",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+
+app.post("/resend-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.json({
+        success: false,
+        message: "Email already verified",
+      });
+    }
+
+    // ⏱️ Enforce 40-second cooldown
+    if (user.otpLastSentAt) {
+      const secondsPassed =
+        (Date.now() - user.otpLastSentAt.getTime()) / 1000;
+
+      if (secondsPassed < 40) {
+        return res.json({
+          success: false,
+          message: `Please wait ${Math.ceil(
+            40 - secondsPassed
+          )} seconds before resending OTP`,
+        });
+      }
+    }
+
+    // 🔢 Generate new OTP
+    const newOtp = crypto.randomInt(100000, 999999).toString();
+
+    // ⏳ New expiry (10 minutes)
+    const newExpiry = new Date();
+    newExpiry.setMinutes(newExpiry.getMinutes() + 10);
+
+    // Save updates
+    user.otp = newOtp;
+    user.otpExpiry = newExpiry;
+    user.otpLastSentAt = new Date();
+
+    await user.save();
+
+    // 📧 Send email
+    await sendOtpMail(email, newOtp);
+
+    return res.json({
+      success: true,
+      message: "New OTP sent to your email",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+
+
+// Login
+app.post("/login", async (req, res) => {
+  console.log("🔥 NEW LOGIN ROUTE HIT 🔥");
+
+  try {
+    const { email, password } = req.body;
+
+    // 1️⃣ Check empty fields
+    if (!email || !password) {
+      return res.json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // 2️⃣ Check user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User does not exist",
+      });
+    }
+
+    // 3️⃣ Check if blocked by admin
+    if (user.isBlocked) {
+      return res.json({
+        success: false,
+        message: "Your account has been blocked by admin",
+      });
+    }
+
+    // 4️⃣ Check email verification
+    if (!user.isVerified) {
+      return res.json({
+        success: false,
+        message: "Please verify your email before logging in",
+      });
+    }
+
+    // 5️⃣ Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // ✅ SUCCESS
+    return res.json({
+  success: true,
+  message: "Login successful",
+  userType: user.userType,
+  profileCompleted: user.profileCompleted,
+});
+
+  } catch (err) {
+    console.error(err);
+    return res.json({
+      success: false,
+      message: "Server error occurred",
+    });
+  }
+});
+
+app.put("/service-provider/complete-profile", async (req, res) => {
+  const { email, serviceName, phone } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user)
+    return res.json({ success: false, message: "User not found" });
+
+  user.profileCompleted = true;
+
+  // optional: save provider-specific data later in another collection
+  await user.save();
+
+  res.json({ success: true });
+});
+
+
 
 // Routes
 import videoRoutes from "./routes/videoRoutes.js";

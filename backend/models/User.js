@@ -18,8 +18,28 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,   // ✅ NEW
     },
+  isVerified: {
+    type: Boolean,
+    default: false,
   },
-  { timestamps: true } // ✅ createdAt & updatedAt
+
+  otp: {
+    type: String,
+  },
+
+  otpExpiry: {
+    type: Date,
+  },
+  otpLastSentAt: {
+    type: Date,
+  },
+
+  profileCompleted: {
+    type: Boolean,
+    default: false,
+  },
+},
+{ timestamps: true } // ✅ createdAt & updatedAt
 );
 
 export default mongoose.model("User", userSchema);

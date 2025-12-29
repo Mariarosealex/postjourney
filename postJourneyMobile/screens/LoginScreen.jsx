@@ -39,8 +39,20 @@ export default function LoginScreen({ navigation }) {
         if (type === "patient") {
           navigation.navigate("PatientDashboard", { userEmail: email });
         } else if (type === "service provider") {
-          navigation.navigate("ServiceProviderDashboard", { userEmail: email });
+
+            if (!response.data.profileCompleted) {
+            // 🔑 FIRST LOGIN → fill details
+              navigation.replace("ServiceProviderProfileScreen", {
+              userEmail: email,
+            });
         } else {
+    // ✅ PROFILE ALREADY DONE → go to equipment
+        navigation.replace("ServiceProviderDashboard", {
+        userEmail: email,
+      });
+      }
+
+    } else {
           Alert.alert("Error", "Unknown user type");
         }
       } else {
