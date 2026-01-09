@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -71,7 +72,9 @@ export default function MedicalVideos({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
+        {loading && (
+          <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+        )}
 
         {/* DB VIDEOS */}
         {!showingYouTube &&
@@ -79,9 +82,17 @@ export default function MedicalVideos({ navigation }) {
             <TouchableOpacity
               key={video._id}
               style={styles.card}
-              onPress={() =>
-                navigation.navigate("VideoPlayer", { url: video.url })
-              }
+              onPress={() => {
+  if (Platform.OS === "web") {
+    window.open(video.url, "_blank");
+  } else {
+    navigation.navigate("VideoPlayer", {
+      type: "direct",
+      url: video.url,
+    });
+  }
+}}
+
             >
               <Image source={{ uri: video.thumbnail }} style={styles.thumb} />
               <Text style={styles.cardTitle}>{video.title}</Text>
@@ -97,11 +108,22 @@ export default function MedicalVideos({ navigation }) {
             <TouchableOpacity
               key={video.videoId}
               style={styles.card}
-              onPress={() =>
-                navigation.navigate("VideoPlayer", {
-                  url: `https://www.youtube.com/watch?v=${video.videoId}`,
-                })
-              }
+              onPress={() => {
+                // 🌐 WEB: open YouTube externally
+                if (Platform.OS === "web") {
+                  window.open(
+                    `https://www.youtube.com/watch?v=${video.videoId}`,
+                    "_blank"
+                  );
+                }
+                // 📱 MOBILE: embedded player
+                else {
+                  navigation.navigate("VideoPlayer", {
+                    type: "youtube",
+                    videoId: video.videoId,
+                  });
+                }
+              }}
             >
               <Image source={{ uri: video.thumbnail }} style={styles.thumb} />
               <Text style={styles.cardTitle}>{video.title}</Text>
